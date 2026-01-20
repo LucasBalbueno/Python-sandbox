@@ -1,6 +1,6 @@
-# uvicorn books:app --reload (for run this code)
-# fastapi run books.py (for run production mode)
-# fastapi dev books.py (for run development mode)
+# uvicorn Project1.books:app --reload (for run this code)
+# fastapi run Project1.books.py (for run production mode)
+# fastapi dev Project1.books.py (for run development mode)
 
 # import fastapi lib
 from fastapi import FastAPI, Body
