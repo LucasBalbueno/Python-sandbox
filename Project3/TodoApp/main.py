@@ -9,6 +9,7 @@ from routers import auth, todos
 app = FastAPI()
 
 # Cria todas as tabelas definidas nos modelos no banco de dados usando o engine configurado.
+# Essa opção faz com o que o banco seja criado ao executar a main
 models.Base.metadata.create_all(bind=engine)
 
 # Incluindo todos os métodos auth de auth.py na main

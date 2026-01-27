@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
 # Define a URL de conexão para um banco SQLite local chamado todos.db no diretório atual.
-SQLALCHEMY_DATABASE_URL = 'sqlite:///./todos.db'
+SQLALCHEMY_DATABASE_URL = 'sqlite:///./todosapp.db'
 
 # create_engine: Cria a conexão com o banco de dados
 # Cria o engine que gerencia a conexão. O parâmetro check_same_thread: False permite que o SQLite seja usado em threads diferentes (necessário para FastAPI).
