@@ -1,32 +1,58 @@
 # Arquivos com rotas auth e lógica de JWT token
+
 from datetime import timedelta, datetime, timezone
 from typing import Annotated
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from starlette import status
 from database import SessionLocal
 from models import Users
 from passlib.context import CryptContext
-from fastapi.security import OAuth2PasswordRequestForm
-from jose import jwt
+from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from jose import jwt, JWTError
 
-router = APIRouter()
+# Configura as rotas para sempre começar com /auth
+router = APIRouter(
+    prefix='/auth',
+    tags=['auth']
+)
+
+# Configurando o bcrypt
+bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+oauh2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
 
 # KEYS para usar no jwt token
 SECRET_KEY = 'fcfb2b42cbc06959fd50cd70084e0bd92e5aca9383ddc675a4017eb587b5dee9'
 ALGORITHM = 'HS256'
 
 # Essa função pega o username, a senha e a dependência do banco de dados
-# Verifica se o username existe no banco de dados, se não retorna False
-# Verifica se a senha passada é a mesma senha criptografada salva no banco
 def authenticate_user(username: str, password: str, db):
+    # Verifica se o username existe no banco de dados, se não retorna False
     user = db.query(Users).filter(Users.username == username).first()
     if not user:
         return False
+    # Verifica se a senha passada é a mesma senha criptografada salva no banco
     if not bcrypt_context.verify(password, user.hashed_password):
         return False
     return user
+
+async def get_current_user(token: Annotated[str, Depends(oauh2_bearer)]):
+    try:
+        # decodifica e verifica o token usando SECRET_KEY e ALGORITHM.Se a assinatura / expiração falhar, JWTError é levantada
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        # extrai as claims esperadas: subject(username) e user id
+        username: str = payload.get('sub')
+        user_id: int = payload.get('id')
+        # Se qualquer claim estiver ausente, a função levanta HTTPException
+        if username is None or user_id is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Could not validate user.')
+
+        return {'username': username, 'id': user_id}
+
+    # Bloco de erro, captura os erros e devolver o erro 401
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Could not validate user.')
 
 # O objetivo da função é criar um JWT com as claims sub (username), id (user id) e exp (expiração).
 def create_access_token(username: str, user_id: int, expires_delta: timedelta):
@@ -49,9 +75,6 @@ def get_db():
 # Cria uma dependência reutilizável que: Anota o tipo como Session e usa Depends(get_db) para injetar a sessão do banco automaticamente
 db_dependency = Annotated[Session, Depends(get_db)]
 
-# Configurando o bcrypt
-bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
-
 # Classe do tipo request para criar um usuário
 class CreateUserRequest(BaseModel):
     username: str
@@ -61,11 +84,12 @@ class CreateUserRequest(BaseModel):
     password: str
     role: str
 
+# Classe do tipo request para criar um token
 class Token(BaseModel):
     access_token: str
     token_type: str
 
-@router.post("/auth", status_code=status.HTTP_201_CREATED)
+@router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_user(db: db_dependency, create_user_request: CreateUserRequest):
     create_user_model = Users(
         email = create_user_request.email,
@@ -90,8 +114,9 @@ async def create_user(db: db_dependency, create_user_request: CreateUserRequest)
 async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: db_dependency):
     # Chamando a função que verifica se o username e senha no banco de dados existe e estão corretos
     user = authenticate_user(form_data.username, form_data.password, db)
+    # Se não passar retorna um erro
     if not user:
-        return 'Failed Authentication'
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Could not validate user.')
 
     # Criando um token de acesso passando o username, id e o tempo de expiração
     token = create_access_token(user.username, user.id, timedelta(minutes=20))
