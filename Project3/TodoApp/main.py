@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 import models
 from database import engine
-from routers import auth, todos
+from routers import auth, todos, admin, users
 
 # Instancia a aplicação FastAPI.
 app = FastAPI()
@@ -12,8 +12,14 @@ app = FastAPI()
 # Essa opção faz com o que o banco seja criado ao executar a main
 models.Base.metadata.create_all(bind=engine)
 
-# Incluindo todos os métodos auth de auth.py na main
+# Incluindo todos os métodos HTTP auth de auth.py na main
 app.include_router(auth.router)
 
-# Incluindo todos os métodos de to do de todos.py na main
+# Incluindo todos os métodos HTTP de to do de todos.py na main
 app.include_router(todos.router)
+
+# Incluindo todos os métodos HTTP admin de admin.py na main
+app.include_router(admin.router)
+
+# Incluindo todos os métodos HTTP users de users.py na main
+app.include_router(users.router)

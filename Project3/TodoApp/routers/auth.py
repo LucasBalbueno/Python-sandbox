@@ -44,19 +44,20 @@ async def get_current_user(token: Annotated[str, Depends(oauh2_bearer)]):
         # extrai as claims esperadas: subject(username) e user id
         username: str = payload.get('sub')
         user_id: int = payload.get('id')
+        user_role: str = payload.get('role')
         # Se qualquer claim estiver ausente, a função levanta HTTPException
         if username is None or user_id is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Could not validate user.')
 
-        return {'username': username, 'id': user_id}
+        return {'username': username, 'id': user_id, 'user_role': user_role}
 
     # Bloco de erro, captura os erros e devolver o erro 401
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Could not validate user.')
 
 # O objetivo da função é criar um JWT com as claims sub (username), id (user id) e exp (expiração).
-def create_access_token(username: str, user_id: int, expires_delta: timedelta):
-    encode = {'sub': username, 'id': user_id}
+def create_access_token(username: str, user_id: int, role: str, expires_delta: timedelta):
+    encode = {'sub': username, 'id': user_id, 'role': role}
     expires = datetime.now(timezone.utc) + expires_delta
     encode.update({'exp': expires})
     return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
@@ -97,7 +98,7 @@ async def create_user(db: db_dependency, create_user_request: CreateUserRequest)
         first_name = create_user_request.first_name,
         last_name = create_user_request.last_name,
         role = create_user_request.role,
-        hashed_password =bcrypt_context.hash(create_user_request.password),
+        hashed_password = bcrypt_context.hash(create_user_request.password),
         is_active = True
     )
 
@@ -119,7 +120,7 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Could not validate user.')
 
     # Criando um token de acesso passando o username, id e o tempo de expiração
-    token = create_access_token(user.username, user.id, timedelta(minutes=20))
+    token = create_access_token(user.username, user.id, user.role,  timedelta(minutes=20))
 
     # Retornando o token JWT para o method criar token
     return {'access_token': token, 'token_type': 'bearer'}
