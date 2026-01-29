@@ -5,11 +5,11 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
 # Define a URL de conexão para um banco SQLite local chamado todos.db no diretório atual.
-SQLALCHEMY_DATABASE_URL = 'sqlite:///./todosapp.db'
+SQLALCHEMY_DATABASE_URL = 'postgresql://postgres:admin123@localhost/TodoApplicationDatabase'
 
 # create_engine: Cria a conexão com o banco de dados
 # Cria o engine que gerencia a conexão. O parâmetro check_same_thread: False permite que o SQLite seja usado em threads diferentes (necessário para FastAPI).
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={'check_same_thread': False})
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 # sessionmaker: Factory para criar sessões de banco de dados
 # autocommit=False: Transações devem ser commitadas manualmente
