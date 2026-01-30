@@ -60,3 +60,15 @@ async def update_password (user: user_dependency, db: db_dependency, user_passwo
 
     db.add(user_model)
     db.commit()
+
+@router.put('/user/update_phone_number', status_code=status.HTTP_200_OK)
+
+async def update_phone_number (user: user_dependency, db: db_dependency, phone_number: str):
+    if user is None:
+        raise HTTPException(status_code=401, detail='Authentication Failed')
+
+    user_model = db.query(Users).filter(Users.id == user.get('id')).first() # type: ignore
+    user_model.phone_number = phone_number
+
+    db.add(user_model)
+    db.commit()
