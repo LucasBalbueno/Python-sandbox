@@ -2,8 +2,8 @@ from typing import Annotated
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, Path, HTTPException
 from starlette import status
-from models import Todos
-from database import SessionLocal
+from ..models import Todos
+from ..database import SessionLocal
 from .auth import get_current_user
 
 # Instancia de uma rota para ser usado na main

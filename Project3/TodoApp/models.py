@@ -1,7 +1,7 @@
 # Este código define um modelo SQLAlchemy para uma tabela de tarefas (todos).
 
 # Base: Classe base importada do arquivo database.py que contém a configuração do SQLAlchemy
-from database import Base
+from .database import Base
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 
 # Criando tabela users
