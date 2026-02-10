@@ -46,14 +46,14 @@ async def get_current_user (user: user_dependency, db: db_dependency):
 
     return db.query(Users).filter(Users.id == user.get('id')).first() # type: ignore
 
-@router.put('/user/update_password', status_code=status.HTTP_200_OK)
+@router.put('/user/update_password', status_code=status.HTTP_204_NO_CONTENT)
 async def update_password (user: user_dependency, db: db_dependency, user_password_request: UserPasswordRequest):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
 
     user_model = db.query(Users).filter(Users.id == user.get('id')).first() # type: ignore
 
-    if not bcrypt_context.verify(user_password_request.password, user_password_request.new_password):
+    if not bcrypt_context.verify(user_password_request.password, user_model.hashed_password):
         raise HTTPException(status_code=401, detail='Error on password change')
 
     user_model.hashed_password = bcrypt_context.hash(user_password_request.new_password)
@@ -61,8 +61,7 @@ async def update_password (user: user_dependency, db: db_dependency, user_passwo
     db.add(user_model)
     db.commit()
 
-@router.put('/user/update_phone_number', status_code=status.HTTP_200_OK)
-
+@router.put('/user/update_phone_number/{phone_number}', status_code=status.HTTP_204_NO_CONTENT)
 async def update_phone_number (user: user_dependency, db: db_dependency, phone_number: str):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')

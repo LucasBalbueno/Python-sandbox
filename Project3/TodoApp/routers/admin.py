@@ -48,7 +48,7 @@ async def delete_todo (user: user_dependency, db: db_dependency, todo_id: int = 
     # Verifica se o to do existe
     todo_model = db.query(Todos).filter(Todos.id == todo_id).first() # type: ignore
     if todo_model is None:
-        raise HTTPException(status_code=404, detail='Todo not Found.')
+        raise HTTPException(status_code=404, detail='Todo not found.')
 
     # Exclui o to do específico pelo seu id
     db.query(Todos).filter(Todos.id == todo_id).delete() # type: ignore

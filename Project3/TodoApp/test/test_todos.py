@@ -1,94 +1,13 @@
 # Importações principais usadas nos testes:
-# - sqlalchemy: para conectar/criar uma sessão de teste com o banco
-# - FastAPI TestClient: para fazer requisições ao app durante os testes
-# - pytest: para fixtures e execução dos testes
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-from ..database import Base
-from ..main import app
+# - get_db e get_current_user para aplicar os overrides criados
+# - fastapi status para indicar os status HTTP em cada teste
 from ..routers.todos import get_db, get_current_user
-from fastapi.testclient import TestClient
 from fastapi import status
-import pytest
-from ..models import Todos
-
-# URL do banco de dados usado nos testes.
-# Aqui está apontando para um Postgres local "TodoTestDatabase".
-# Observação: em muitos setups de CI/tests locais prefere-se usar SQLite em memória, enquanto o DB principal é com POSTGREs
-SQLALCHEMY_DATABASE_URL = 'sqlite:///./testdb.db'
-
-# Criação do engine de SQLAlchemy.
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}, poolclass=StaticPool)
-
-# Fábrica de sessões usada apenas nos testes (TestingSessionLocal).
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Garante que as tabelas declaradas (Base.metadata) existam no banco de teste.
-# Isso cria as tabelas necessárias antes de executar os testes.
-Base.metadata.create_all(bind=engine)
-
-# Função que substitui (override) a dependência get_db do FastAPI para usar a sessão de teste.
-# FastAPI permite sobrescrever dependências durante testes para injetar uma sessão de teste.
-def override_get_db():
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-# Função que substitui (override) a dependência get_current_user para simular um usuário autenticado.
-# Aqui retornamos um dicionário simples com username, id e role.
-# Isso evita a necessidade de autenticar via tokens durante os testes.
-def override_get_current_user():
-    return {'username': 'Lucas', 'id': 1, 'user_role': 'admin'}
+from .utils import *
 
 # Aplica as sobrescritas de dependência ao app FastAPI para toda a execução dos testes.
 app.dependency_overrides[get_db] = override_get_db
 app.dependency_overrides[get_current_user] = override_get_current_user
-
-# Cliente de teste que faz requisições HTTP ao app FastAPI.
-client = TestClient(app)
-
-# Uma fixture no pytest é uma função que prepara dados ou recursos necessários para os testes executarem.
-# Ela funciona como um provedor de dependências que configura o ambiente antes dos testes.
-# Principais características das fixtures:
-# 1. Preparação de dados - Criam objetos, conexões de banco, arquivos temporários
-# 2. Reutilização - Podem ser usadas por múltiplos testes
-# 3. Injeção de dependência -O pytest automaticamente "injeta" a fixture nos testes que a requisitam
-# 4. Limpeza automática (com yield)
-# Código antes do yield: executa antes do teste (setup)
-# Código após o yield: executa após o teste (teardown)
-
-# Fixture pytest que cria um To do no banco antes do teste e garante limpeza após o teste.
-# A fixture devolve o objeto to do para que os testes possam usá-lo diretamente.
-# Sem fixtures, você teria que repetir o código de criação e limpeza em cada teste. Com fixtures, o pytest gerencia isso automaticamente.
-@pytest.fixture
-def test_todo():
-    todo = Todos(
-        title="Learn to code",
-        description="Need to learn everyday!",
-        priority=5,
-        complete=False,
-        owner_id=1
-    )
-
-    # Abre uma sessão de teste, adiciona o objeto e faz commit para persistir no DB de teste.
-    db = TestingSessionLocal()
-    db.add(todo)
-    db.commit()
-
-    # Entrega o to do para o teste que depender desta fixture.
-    # Sem o yield, a fixture seria apenas uma função normal que executa tudo de uma vez.
-    # Com o yield, se torna um gerenciador de contexto que garante limpeza automática após cada teste,
-    # dividindo oc código em antes e depois dos testes
-    yield todo
-
-    # Limpeza: após o teste, removemos todos os registros da tabela todos.
-    # Usamos conexão direta e comando SQL para garantir remoção.
-    with engine.connect() as connection:
-        connection.execute(text("DELETE FROM todos;"))
-        connection.commit()
 
 # Teste que verifica leitura de todos os To do.
 def test_read_all_authenticated(test_todo):
@@ -96,7 +15,7 @@ def test_read_all_authenticated(test_todo):
     # O assert verifica status HTTP 200 OK.
     assert response.status_code == status.HTTP_200_OK
     # A comparação JSON abaixo precisa corresponder exatamente ao que a rota retorna.
-    assert response.json() == [{'complete': False, 'title': 'Learn to code',
+    assert response.json() == [{'complete': False, 'title': 'Learn to code!',
                                 'description': 'Need to learn everyday!', 'id': 1,
                                 'priority': 5, 'owner_id': 1}]
 
@@ -107,7 +26,7 @@ def test_read_one_authenticated(test_todo):
     # Verifica se a resposta retorna status HTTP 200 (OK), indicando sucesso.
     assert response.status_code == status.HTTP_200_OK
     # Valida se o JSON retornado corresponde exatamente aos dados do to do criado pela fixture.
-    assert response.json() == {'complete': False, 'title': 'Learn to code',
+    assert response.json() == {'complete': False, 'title': 'Learn to code!',
                                 'description': 'Need to learn everyday!', 'id': 1,
                                 'priority': 5, 'owner_id': 1}
 
@@ -149,7 +68,7 @@ def test_create_todo(test_todo):
     assert model.complete == request_data.get('complete')
 
 # Teste que verifica a atualização de um to do existente via PUT.
-# Usa a fixture test_todo que cria um todo com id=1 antes do teste para ser atualizado.
+# Usa a fixture test_todo que cria um to do com id=1 antes do teste para ser atualizado.
 def test_update_todo(test_todo):
     # Dados para atualizar o to do existente. Mudamos principalmente o título para verificar a atualização.
     request_data={
